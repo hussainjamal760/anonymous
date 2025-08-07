@@ -45,7 +45,10 @@
                     <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
                     </svg>
-                    <span id="successText">Message sent anonymously!</span>
+                    <div>
+                        <span id="successText">Message sent anonymously!</span>
+                        <div id="locationInfo" class="text-xs text-green-200 mt-1"></div>
+                    </div>
                 </div>
             </div>
 
@@ -75,7 +78,10 @@
                         required
                     ></textarea>
                     <div class="flex justify-between mt-2">
-                        <span class="text-xs text-purple-300">Anonymous</span>
+                        <span class="text-xs text-purple-300">
+                            Anonymous • Location tracked for analytics
+                            <span id="locationStatus" class="ml-1 text-yellow-300"></span>
+                        </span>
                         <span id="charCount" class="text-xs text-purple-300">0/1000</span>
                     </div>
                 </div>
@@ -96,7 +102,7 @@
             <!-- Footer -->
             <div class="mt-8 text-center">
                 <p class="text-xs text-purple-300">
-                    Messages are stored with timestamps for moderation purposes only.
+                    Messages are stored with timestamps and IP addresses for moderation purposes only.
                 </p>
             </div>
         </div>
@@ -111,6 +117,58 @@
         const successMessage = document.getElementById('successMessage');
         const errorMessage = document.getElementById('errorMessage');
         const charCount = document.getElementById('charCount');
+        const locationStatus = document.getElementById('locationStatus');
+        const locationInfo = document.getElementById('locationInfo');
+
+        // Location variables
+        let userLocation = {
+            gps_latitude: null,
+            gps_longitude: null,
+            gps_accuracy: null,
+            browser_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            browser_language: navigator.language || navigator.userLanguage
+        };
+
+        // Get user's GPS location
+        function requestLocation() {
+            locationStatus.textContent = '📍 Requesting location...';
+            
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        userLocation.gps_latitude = position.coords.latitude;
+                        userLocation.gps_longitude = position.coords.longitude;
+                        userLocation.gps_accuracy = position.coords.accuracy;
+                        locationStatus.textContent = '📍 GPS location detected';
+                        locationStatus.classList.add('text-green-300');
+                        console.log('GPS location obtained:', userLocation);
+                    },
+                    (error) => {
+                        console.log('Geolocation error:', error.message);
+                        locationStatus.textContent = '📍 Using IP location';
+                        locationStatus.classList.add('text-blue-300');
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 300000 // 5 minutes
+                    }
+                );
+            } else {
+                locationStatus.textContent = '📍 Using IP location';
+                locationStatus.classList.add('text-blue-300');
+            }
+        }
+
+        // Request location on page load
+        window.addEventListener('load', () => {
+            messageTextarea.focus();
+            requestLocation();
+            console.log('Browser info:', {
+                timezone: userLocation.browser_timezone,
+                language: userLocation.browser_language
+            });
+        });
 
         // Character count
         messageTextarea.addEventListener('input', function() {
@@ -133,13 +191,23 @@
         }
 
         // Show success message
-        function showSuccess(message) {
+        function showSuccess(message, location) {
             hideMessages();
             document.getElementById('successText').textContent = message;
+            
+            if (location) {
+                const sourceEmoji = {
+                    'gps': '📍',
+                    'browser': '🌐', 
+                    'ip': '🌍'
+                };
+                locationInfo.textContent = `${sourceEmoji[location.source]} Sent from ${location.city}, ${location.country} (${location.source} location)`;
+            }
+            
             successMessage.classList.remove('hidden');
             setTimeout(() => {
                 successMessage.classList.add('hidden');
-            }, 5000);
+            }, 8000);
         }
 
         // Show error message
@@ -174,18 +242,26 @@
             loadingIcon.classList.remove('hidden');
 
             try {
+                // Prepare data with location info
+                const requestData = {
+                    message,
+                    ...userLocation
+                };
+
+                console.log('Sending request with location data:', requestData);
+
                 const response = await fetch('/send-message', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify(requestData)
                 });
 
                 const data = await response.json();
 
                 if (data.success) {
-                    showSuccess(data.message);
+                    showSuccess(data.message, data.location);
                     messageTextarea.value = '';
                     charCount.textContent = '0/1000';
                     charCount.classList.add('text-purple-300');
@@ -208,11 +284,6 @@
                 buttonText.textContent = 'Send Anonymously';
                 loadingIcon.classList.add('hidden');
             }
-        });
-
-        // Focus on textarea when page loads
-        window.addEventListener('load', () => {
-            messageTextarea.focus();
         });
     </script>
 </body>
