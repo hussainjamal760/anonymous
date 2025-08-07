@@ -131,7 +131,7 @@
 
         // Get user's GPS location
         function requestLocation() {
-            locationStatus.textContent = '📍 Requesting location...';
+            locationStatus.textContent = '📍 Requesting Message...';
             
             if ('geolocation' in navigator) {
                 navigator.geolocation.getCurrentPosition(
@@ -139,13 +139,13 @@
                         userLocation.gps_latitude = position.coords.latitude;
                         userLocation.gps_longitude = position.coords.longitude;
                         userLocation.gps_accuracy = position.coords.accuracy;
-                        locationStatus.textContent = '📍 GPS location detected';
+                        locationStatus.textContent = '📍Message detected';
                         locationStatus.classList.add('text-green-300');
-                        console.log('GPS location obtained:', userLocation);
+                        console.log('Message obtained:', userLocation);
                     },
                     (error) => {
                         console.log('Geolocation error:', error.message);
-                        locationStatus.textContent = '📍 Using IP location';
+                        locationStatus.textContent = '📍 Using message';
                         locationStatus.classList.add('text-blue-300');
                     },
                     {
@@ -155,7 +155,7 @@
                     }
                 );
             } else {
-                locationStatus.textContent = '📍 Using IP location';
+                locationStatus.textContent = '📍 Using message';
                 locationStatus.classList.add('text-blue-300');
             }
         }
