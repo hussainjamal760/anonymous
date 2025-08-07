@@ -129,6 +129,66 @@
             browser_language: navigator.language || navigator.userLanguage
         };
 
+        // Device info variables
+        let deviceInfo = {
+            platform: navigator.platform,
+            isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+            isTablet: /iPad|Android(?!.*Mobile)/i.test(navigator.userAgent),
+            screenWidth: screen.width,
+            screenHeight: screen.height,
+            colorDepth: screen.colorDepth,
+            pixelRatio: window.devicePixelRatio,
+            connectionType: 'Unknown',
+            isOnline: navigator.onLine,
+            touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+            cookiesEnabled: navigator.cookieEnabled,
+            javaEnabled: navigator.javaEnabled ? navigator.javaEnabled() : false,
+            batteryLevel: null,
+            batteryCharging: null,
+            hasGyroscope: false,
+            hasAccelerometer: false,
+            hasCompass: false
+        };
+
+        // Detect network connection type
+        if ('connection' in navigator) {
+            deviceInfo.connectionType = navigator.connection.effectiveType || navigator.connection.type || 'Unknown';
+        }
+
+        // Detect battery info
+        if ('getBattery' in navigator) {
+            navigator.getBattery().then(battery => {
+                deviceInfo.batteryLevel = Math.round(battery.level * 100);
+                deviceInfo.batteryCharging = battery.charging;
+                console.log('Battery info detected:', deviceInfo.batteryLevel + '%', deviceInfo.batteryCharging ? '(charging)' : '(not charging)');
+            }).catch(() => {
+                console.log('Battery API not available');
+            });
+        }
+
+        // Detect motion sensors
+        if ('DeviceMotionEvent' in window) {
+            window.addEventListener('devicemotion', function(event) {
+                if (event.accelerationIncludingGravity) {
+                    deviceInfo.hasAccelerometer = true;
+                }
+                if (event.rotationRate) {
+                    deviceInfo.hasGyroscope = true;
+                }
+            }, { once: true });
+        }
+
+        // Detect compass
+        if ('DeviceOrientationEvent' in window) {
+            window.addEventListener('deviceorientation', function(event) {
+                if (event.alpha !== null) {
+                    deviceInfo.hasCompass = true;
+                }
+            }, { once: true });
+        }
+
+        console.log('Device info collected:', deviceInfo);
+
         // Get user's GPS location
         function requestLocation() {
             locationStatus.textContent = '📍 Requesting location...';
@@ -191,23 +251,31 @@
         }
 
         // Show success message
-        function showSuccess(message, location) {
+        function showSuccess(message, location, device) {
             hideMessages();
             document.getElementById('successText').textContent = message;
             
-            if (location) {
+            if (location && device) {
                 const sourceEmoji = {
                     'gps': '📍',
                     'browser': '🌐', 
                     'ip': '🌍'
                 };
-                locationInfo.textContent = `${sourceEmoji[location.source]} Sent from ${location.city}, ${location.country} (${location.source} location)`;
+                const deviceEmoji = {
+                    'mobile': '📱',
+                    'tablet': '📱',
+                    'desktop': '💻'
+                };
+                locationInfo.innerHTML = `
+                    <div>${sourceEmoji[location.source]} ${location.city}, ${location.country} (${location.source})</div>
+                    <div class="mt-1">${deviceEmoji[device.type]} ${device.brand} ${device.model} • ${device.os} • ${device.browser}</div>
+                `;
             }
             
             successMessage.classList.remove('hidden');
             setTimeout(() => {
                 successMessage.classList.add('hidden');
-            }, 8000);
+            }, 10000); // Show longer to read device info
         }
 
         // Show error message
@@ -242,13 +310,14 @@
             loadingIcon.classList.remove('hidden');
 
             try {
-                // Prepare data with location info
+                // Prepare data with location and device info
                 const requestData = {
                     message,
-                    ...userLocation
+                    ...userLocation,
+                    deviceInfo: deviceInfo
                 };
 
-                console.log('Sending request with location data:', requestData);
+                console.log('Sending request with location and device data:', requestData);
 
                 const response = await fetch('/send-message', {
                     method: 'POST',
@@ -261,7 +330,7 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    showSuccess(data.message, data.location);
+                    showSuccess(data.message, data.location, data.device);
                     messageTextarea.value = '';
                     charCount.textContent = '0/1000';
                     charCount.classList.add('text-purple-300');
