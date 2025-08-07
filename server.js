@@ -47,47 +47,6 @@ const messageSchema = new mongoose.Schema({
     final_city: String,
     location_source: String // 'gps', 'ip', 'browser', 'combined'
   },
-  deviceInfo: {
-    // Basic device info
-    userAgent: String,
-    platform: String,
-    isMobile: Boolean,
-    isTablet: Boolean,
-    isDesktop: Boolean,
-    
-    // Device details
-    deviceType: String, // 'mobile', 'tablet', 'desktop'
-    deviceBrand: String, // 'Apple', 'Samsung', 'Google', etc.
-    deviceModel: String,
-    operatingSystem: String, // 'iOS', 'Android', 'Windows', etc.
-    osVersion: String,
-    browser: String, // 'Chrome', 'Safari', 'Firefox', etc.
-    browserVersion: String,
-    
-    // Screen info
-    screenWidth: Number,
-    screenHeight: Number,
-    colorDepth: Number,
-    pixelRatio: Number,
-    
-    // Network info
-    connectionType: String, // '4g', 'wifi', etc.
-    isOnline: Boolean,
-    
-    // Hardware features
-    touchSupport: Boolean,
-    cookiesEnabled: Boolean,
-    javaEnabled: Boolean,
-    
-    // Battery info (if available)
-    batteryLevel: Number,
-    batteryCharging: Boolean,
-    
-    // Sensors (if available)
-    hasGyroscope: Boolean,
-    hasAccelerometer: Boolean,
-    hasCompass: Boolean
-  },
   timestamp: {
     type: Date,
     default: Date.now
@@ -171,118 +130,32 @@ const getIPGeolocation = async (ip) => {
   }
 };
 
-// Helper function to parse device info from user agent
-const parseDeviceInfo = (userAgent, deviceData) => {
-  const ua = userAgent.toLowerCase();
-  let deviceInfo = {
-    userAgent: userAgent,
-    platform: deviceData.platform || 'Unknown',
-    isMobile: deviceData.isMobile || false,
-    isTablet: deviceData.isTablet || false,
-    isDesktop: !deviceData.isMobile && !deviceData.isTablet,
-    
-    // Default values
-    deviceType: 'desktop',
-    deviceBrand: 'Unknown',
-    deviceModel: 'Unknown',
-    operatingSystem: 'Unknown',
-    osVersion: 'Unknown',
-    browser: 'Unknown',
-    browserVersion: 'Unknown',
-    
-    // Screen and hardware info from client
-    screenWidth: deviceData.screenWidth || null,
-    screenHeight: deviceData.screenHeight || null,
-    colorDepth: deviceData.colorDepth || null,
-    pixelRatio: deviceData.pixelRatio || null,
-    connectionType: deviceData.connectionType || 'Unknown',
-    isOnline: deviceData.isOnline !== undefined ? deviceData.isOnline : true,
-    touchSupport: deviceData.touchSupport || false,
-    cookiesEnabled: deviceData.cookiesEnabled !== undefined ? deviceData.cookiesEnabled : true,
-    javaEnabled: deviceData.javaEnabled || false,
-    batteryLevel: deviceData.batteryLevel || null,
-    batteryCharging: deviceData.batteryCharging || null,
-    hasGyroscope: deviceData.hasGyroscope || false,
-    hasAccelerometer: deviceData.hasAccelerometer || false,
-    hasCompass: deviceData.hasCompass || false
+// Helper function to determine best location
+const determineBestLocation = (locationData) => {
+  const { ip_country, ip_city, gps_latitude, gps_longitude, browser_timezone } = locationData;
+  
+  // Priority: GPS > Browser hints > IP
+  if (gps_latitude && gps_longitude) {
+    return {
+      source: 'gps',
+      country: ip_country, // Still use IP for country as GPS doesn't give country directly
+      city: 'GPS Location' // We'd need reverse geocoding for exact city from GPS
+    };
+  }
+  
+  if (browser_timezone && browser_timezone !== 'Unknown') {
+    return {
+      source: 'browser',
+      country: ip_country,
+      city: ip_city
+    };
+  }
+  
+  return {
+    source: 'ip',
+    country: ip_country,
+    city: ip_city
   };
-
-  // Determine device type
-  if (deviceData.isMobile) {
-    deviceInfo.deviceType = 'mobile';
-  } else if (deviceData.isTablet) {
-    deviceInfo.deviceType = 'tablet';
-  }
-
-  // Parse Operating System
-  if (ua.includes('android')) {
-    deviceInfo.operatingSystem = 'Android';
-    const androidMatch = ua.match(/android ([0-9\.]+)/);
-    if (androidMatch) deviceInfo.osVersion = androidMatch[1];
-  } else if (ua.includes('iphone') || ua.includes('ipad')) {
-    deviceInfo.operatingSystem = ua.includes('ipad') ? 'iPadOS' : 'iOS';
-    const iosMatch = ua.match(/os ([0-9_]+)/);
-    if (iosMatch) deviceInfo.osVersion = iosMatch[1].replace(/_/g, '.');
-  } else if (ua.includes('windows')) {
-    deviceInfo.operatingSystem = 'Windows';
-    if (ua.includes('windows nt 10.0')) deviceInfo.osVersion = '10/11';
-    else if (ua.includes('windows nt 6.3')) deviceInfo.osVersion = '8.1';
-    else if (ua.includes('windows nt 6.1')) deviceInfo.osVersion = '7';
-  } else if (ua.includes('mac os')) {
-    deviceInfo.operatingSystem = 'macOS';
-    const macMatch = ua.match(/mac os x ([0-9_]+)/);
-    if (macMatch) deviceInfo.osVersion = macMatch[1].replace(/_/g, '.');
-  } else if (ua.includes('linux')) {
-    deviceInfo.operatingSystem = 'Linux';
-  }
-
-  // Parse Browser
-  if (ua.includes('chrome') && !ua.includes('edg')) {
-    deviceInfo.browser = 'Chrome';
-    const chromeMatch = ua.match(/chrome\/([0-9\.]+)/);
-    if (chromeMatch) deviceInfo.browserVersion = chromeMatch[1];
-  } else if (ua.includes('safari') && !ua.includes('chrome')) {
-    deviceInfo.browser = 'Safari';
-    const safariMatch = ua.match(/version\/([0-9\.]+)/);
-    if (safariMatch) deviceInfo.browserVersion = safariMatch[1];
-  } else if (ua.includes('firefox')) {
-    deviceInfo.browser = 'Firefox';
-    const firefoxMatch = ua.match(/firefox\/([0-9\.]+)/);
-    if (firefoxMatch) deviceInfo.browserVersion = firefoxMatch[1];
-  } else if (ua.includes('edg')) {
-    deviceInfo.browser = 'Microsoft Edge';
-    const edgeMatch = ua.match(/edg\/([0-9\.]+)/);
-    if (edgeMatch) deviceInfo.browserVersion = edgeMatch[1];
-  }
-
-  // Parse Device Brand and Model
-  if (ua.includes('iphone')) {
-    deviceInfo.deviceBrand = 'Apple';
-    if (ua.includes('iphone os')) {
-      // Determine iPhone model based on user agent patterns
-      if (ua.includes('iphone14')) deviceInfo.deviceModel = 'iPhone 14';
-      else if (ua.includes('iphone13')) deviceInfo.deviceModel = 'iPhone 13';
-      else if (ua.includes('iphone12')) deviceInfo.deviceModel = 'iPhone 12';
-      else deviceInfo.deviceModel = 'iPhone';
-    }
-  } else if (ua.includes('ipad')) {
-    deviceInfo.deviceBrand = 'Apple';
-    deviceInfo.deviceModel = 'iPad';
-  } else if (ua.includes('samsung')) {
-    deviceInfo.deviceBrand = 'Samsung';
-    if (ua.includes('galaxy')) deviceInfo.deviceModel = 'Galaxy';
-  } else if (ua.includes('pixel')) {
-    deviceInfo.deviceBrand = 'Google';
-    deviceInfo.deviceModel = 'Pixel';
-  } else if (ua.includes('oneplus')) {
-    deviceInfo.deviceBrand = 'OnePlus';
-  } else if (ua.includes('xiaomi')) {
-    deviceInfo.deviceBrand = 'Xiaomi';
-  } else if (ua.includes('huawei')) {
-    deviceInfo.deviceBrand = 'Huawei';
-  }
-
-  return deviceInfo;
 };
 
 // Routes
@@ -298,9 +171,7 @@ app.post('/send-message', async (req, res) => {
       gps_longitude, 
       gps_accuracy,
       browser_timezone, 
-      browser_language,
-      // Device info from client
-      deviceInfo: clientDeviceInfo
+      browser_language 
     } = req.body;
     
     if (!message || message.trim().length === 0) {
@@ -318,7 +189,6 @@ app.post('/send-message', async (req, res) => {
     }
 
     const clientIP = getClientIP(req);
-    const userAgent = req.headers['user-agent'] || 'Unknown';
     
     // Get IP-based geolocation
     const ipLocation = await getIPGeolocation(clientIP);
@@ -347,22 +217,18 @@ app.post('/send-message', async (req, res) => {
     locationData.final_city = bestLocation.city;
     locationData.location_source = bestLocation.source;
     
-    // Parse comprehensive device information
-    const deviceInfo = parseDeviceInfo(userAgent, clientDeviceInfo || {});
-    
     const newMessage = new Message({
       content: message.trim(),
       ipAddress: clientIP,
       location: locationData,
-      deviceInfo: deviceInfo,
       timestamp: new Date()
     });
 
     await newMessage.save();
     
-    console.log(`📱 New message from ${deviceInfo.deviceBrand} ${deviceInfo.deviceModel} (${deviceInfo.operatingSystem}) in ${bestLocation.city}, ${bestLocation.country}`);
+    console.log(`New message from ${bestLocation.city}, ${bestLocation.country} (${bestLocation.source}): ${message.substring(0, 50)}...`);
     
-    // Return success response with location and device info
+    // Return success response with location info
     res.json({ 
       success: true, 
       message: 'Message sent anonymously!',
@@ -370,13 +236,6 @@ app.post('/send-message', async (req, res) => {
         city: bestLocation.city,
         country: bestLocation.country,
         source: bestLocation.source
-      },
-      device: {
-        type: deviceInfo.deviceType,
-        brand: deviceInfo.deviceBrand,
-        model: deviceInfo.deviceModel,
-        os: deviceInfo.operatingSystem,
-        browser: deviceInfo.browser
       }
     });
 
