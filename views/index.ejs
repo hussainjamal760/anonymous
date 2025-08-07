@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Anonymous Message Board</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        
+        .fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .pulse-animation {
+            animation: pulse 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 min-h-screen">
+    <div class="min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl border border-white/20 p-8 w-full max-w-md">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-gradient-to-r from-purple-400 to-pink-400 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-3xl font-bold text-white mb-2">Anonymous Board</h1>
+                <p class="text-purple-200 text-sm">Share your thoughts anonymously</p>
+            </div>
+
+            <!-- Success Message -->
+            <div id="successMessage" class="hidden bg-green-500/20 border border-green-400 text-green-100 px-4 py-3 rounded-lg mb-6 fade-in">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    <span id="successText">Message sent anonymously!</span>
+                </div>
+            </div>
+
+            <!-- Error Message -->
+            <div id="errorMessage" class="hidden bg-red-500/20 border border-red-400 text-red-100 px-4 py-3 rounded-lg mb-6 fade-in">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="errorText">Something went wrong!</span>
+                </div>
+            </div>
+
+            <!-- Form -->
+            <form id="messageForm" class="space-y-6">
+                <div>
+                    <label for="message" class="block text-purple-200 text-sm font-medium mb-2">
+                        Your Message
+                    </label>
+                    <textarea
+                        id="message"
+                        name="message"
+                        rows="4"
+                        maxlength="1000"
+                        placeholder="Share something on your mind..."
+                        class="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-purple-300 focus:outline-none focus:ring-2 focus:ring-purple-400 focus:border-transparent resize-none backdrop-blur-sm"
+                        required
+                    ></textarea>
+                    <div class="flex justify-between mt-2">
+                        <span class="text-xs text-purple-300">Anonymous</span>
+                        <span id="charCount" class="text-xs text-purple-300">0/1000</span>
+                    </div>
+                </div>
+
+                <button
+                    type="submit"
+                    id="sendButton"
+                    class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-lg transition-all duration-200 transform hover:scale-[1.02] focus:outline-none focus:ring-2 focus:ring-purple-400 focus:ring-offset-2 focus:ring-offset-transparent disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+                >
+                    <span id="buttonText">Send Anonymously</span>
+                    <svg id="loadingIcon" class="hidden animate-spin -mr-1 ml-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                </button>
+            </form>
+
+            <!-- Footer -->
+            <div class="mt-8 text-center">
+                <p class="text-xs text-purple-300">
+                    Messages are stored with timestamps for moderation purposes only.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const form = document.getElementById('messageForm');
+        const messageTextarea = document.getElementById('message');
+        const sendButton = document.getElementById('sendButton');
+        const buttonText = document.getElementById('buttonText');
+        const loadingIcon = document.getElementById('loadingIcon');
+        const successMessage = document.getElementById('successMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const charCount = document.getElementById('charCount');
+
+        // Character count
+        messageTextarea.addEventListener('input', function() {
+            const count = this.value.length;
+            charCount.textContent = `${count}/1000`;
+            
+            if (count > 900) {
+                charCount.classList.add('text-red-400');
+                charCount.classList.remove('text-purple-300');
+            } else {
+                charCount.classList.add('text-purple-300');
+                charCount.classList.remove('text-red-400');
+            }
+        });
+
+        // Hide messages
+        function hideMessages() {
+            successMessage.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            hideMessages();
+            document.getElementById('successText').textContent = message;
+            successMessage.classList.remove('hidden');
+            setTimeout(() => {
+                successMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Show error message
+        function showError(message) {
+            hideMessages();
+            document.getElementById('errorText').textContent = message;
+            errorMessage.classList.remove('hidden');
+            setTimeout(() => {
+                errorMessage.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Form submission
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const message = messageTextarea.value.trim();
+            
+            if (!message) {
+                showError('Please enter a message');
+                return;
+            }
+
+            if (message.length > 1000) {
+                showError('Message is too long (max 1000 characters)');
+                return;
+            }
+
+            // Disable button and show loading
+            sendButton.disabled = true;
+            buttonText.textContent = 'Sending...';
+            loadingIcon.classList.remove('hidden');
+
+            try {
+                const response = await fetch('/send-message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showSuccess(data.message);
+                    messageTextarea.value = '';
+                    charCount.textContent = '0/1000';
+                    charCount.classList.add('text-purple-300');
+                    charCount.classList.remove('text-red-400');
+                    
+                    // Add pulse animation to button
+                    sendButton.classList.add('pulse-animation');
+                    setTimeout(() => {
+                        sendButton.classList.remove('pulse-animation');
+                    }, 300);
+                } else {
+                    showError(data.error || 'Failed to send message');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showError('Network error. Please try again.');
+            } finally {
+                // Re-enable button
+                sendButton.disabled = false;
+                buttonText.textContent = 'Send Anonymously';
+                loadingIcon.classList.add('hidden');
+            }
+        });
+
+        // Focus on textarea when page loads
+        window.addEventListener('load', () => {
+            messageTextarea.focus();
+        });
+    </script>
+</body>
+</html>

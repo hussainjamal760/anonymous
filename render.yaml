@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: anonymous-message-board
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: MONGODB_URI
+        fromDatabase:
+          name: anonymous-board-db
+          property: connectionString
+
+databases:
+  - name: anonymous-board-db
+    databaseName: anonymous_board
+    user: admin
+    plan: free
